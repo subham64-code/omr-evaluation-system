@@ -1,0 +1,15 @@
+streamlit
+opencv-python-headless
+numpy
+pandas
+Pillow
+matplotlib
+imutils
+scipy
+bcrypt
+plotly
+requests
+streamlit-lottie
+streamlit-image-comparison
+pytesseract
+pdf2image
