@@ -1,0 +1,36 @@
+{
+  "users": [
+    {"full_name": "Teacher Admin", "email": "admin@omr.local", "password": "admin123", "role": "admin"},
+    {"full_name": "Demo Student", "email": "student@omr.local", "password": "student123", "role": "student"}
+  ],
+  "exam": {
+    "title": "Math Mock Test",
+    "subject": "Mathematics",
+    "total_questions": 10,
+    "negative_marking": 0.25
+  },
+  "questions": [
+    {"question_no": 1, "question_text": "2 + 2 = ?", "options": ["1", "2", "3", "4"], "topic": "Arithmetic"},
+    {"question_no": 2, "question_text": "5 * 3 = ?", "options": ["8", "10", "15", "20"], "topic": "Arithmetic"},
+    {"question_no": 3, "question_text": "Square root of 49", "options": ["6", "7", "8", "9"], "topic": "Algebra"}
+  ],
+  "answer_key": {
+    "1": "D",
+    "2": "C",
+    "3": "B",
+    "4": "A",
+    "5": "C",
+    "6": "B",
+    "7": "D",
+    "8": "A",
+    "9": "B",
+    "10": "C"
+  },
+  "student_response": {
+    "1": "D",
+    "2": "C",
+    "3": "A",
+    "4": "A",
+    "5": "C"
+  }
+}

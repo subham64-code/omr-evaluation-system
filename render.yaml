@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: omr-evaluation-system
+    env: python
+    repo: https://github.com/subham64-code/omr-evaluation-system
+    branch: main
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: OMR_SQLITE_PATH
+        value: /opt/render/project/src/data/omr_eval.db
+      - key: PORT
+        value: 10000
+      - key: FLASK_DEBUG
+        value: "0"

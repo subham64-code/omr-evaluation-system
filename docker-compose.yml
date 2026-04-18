@@ -1,0 +1,14 @@
+version: '3.9'
+services:
+  omr-web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=replace-with-secure-secret
+      - JWT_SECRET_KEY=replace-with-secure-secret
+      - OMR_SQLITE_PATH=/app/data/omr_eval.db
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./results:/app/results

@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OMR Evaluation System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --surface: rgba(255, 255, 255, 0.09);
+      --surface-solid: #111a2f;
+      --line: rgba(255, 255, 255, 0.17);
+      --text: #eff3ff;
+      --muted: #a9b3cf;
+      --accent: #00d2ff;
+      --accent2: #ffcc70;
+      --danger: #ff6b6b;
+      --ok: #3ddc97;
+      --warn: #ffd166;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    [data-theme="light"] {
+      --bg: #f1f6ff;
+      --surface: rgba(255, 255, 255, 0.8);
+      --surface-solid: #ffffff;
+      --line: rgba(8, 26, 56, 0.12);
+      --text: #0f1c34;
+      --muted: #425072;
+      --accent: #0077ff;
+      --accent2: #f59f00;
+      --shadow: 0 18px 40px rgba(16, 34, 74, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Manrope", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(0, 210, 255, 0.25), transparent 35%),
+        radial-gradient(circle at 80% 15%, rgba(255, 204, 112, 0.28), transparent 35%),
+        radial-gradient(circle at 50% 100%, rgba(100, 120, 255, 0.26), transparent 30%),
+        var(--bg);
+      transition: background 0.35s ease, color 0.35s ease;
+    }
+
+    .page {
+      width: min(1150px, 94vw);
+      margin: 22px auto;
+      display: grid;
+      gap: 14px;
+      animation: fadeUp 0.8s ease;
+    }
+
+    .glass {
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 18px;
+    }
+
+    .mt8 { margin-top: 8px; }
+    .mt10 { margin-top: 10px; }
+    .mt12 { margin-top: 12px; }
+    .mt14 { margin-top: 14px; }
+    .divider { border-color: var(--line); margin: 14px 0; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .hero {
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.2px;
+    }
+
+    .hero p { margin: 6px 0 0; color: var(--muted); }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    button, .btn {
+      border: 0;
+      background: linear-gradient(120deg, var(--accent), #46f4ff);
+      color: #031320;
+      font-weight: 700;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: transform 0.2s ease, filter 0.2s ease;
+    }
+
+    button:hover, .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .panel { padding: 16px; }
+
+    h2, h3 { margin: 0 0 12px; font-family: "Space Grotesk", sans-serif; }
+
+    .muted { color: var(--muted); }
+
+    .input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface-solid);
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    textarea { min-height: 90px; resize: vertical; }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 8px 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .ok { color: var(--ok); border-color: rgba(61, 220, 151, 0.55); }
+    .warn { color: var(--warn); border-color: rgba(255, 209, 102, 0.55); }
+    .danger { color: var(--danger); border-color: rgba(255, 107, 107, 0.55); }
+
+    .hidden { display: none !important; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(170px, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--surface-solid);
+    }
+
+    .metric .label { color: var(--muted); font-size: 0.86rem; }
+    .metric .value { font-size: 1.4rem; font-weight: 800; margin-top: 2px; }
+
+    .table-wrap { overflow: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .bubble-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(52px, 1fr));
+      gap: 8px;
+      margin: 10px 0 14px;
+    }
+
+    .bubble {
+      height: 46px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      background: var(--surface-solid);
+      transition: transform 0.18s ease, border-color 0.2s ease;
+      -webkit-user-select: none;
+      user-select: none;
+      font-weight: 700;
+    }
+
+    .bubble.active {
+      border-color: var(--accent);
+      transform: scale(1.03);
+      box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.2);
+    }
+
+    .progress {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress > div {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.35s ease;
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: var(--surface-solid);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      z-index: 20;
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .hero { flex-direction: column; align-items: flex-start; }
+      .cards { grid-template-columns: 1fr; }
+      .bubble-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero glass">
+      <div>
+        <h1>OMR Evaluation System</h1>
+        <p>AI-powered real-time exam evaluation for teachers and students</p>
+      </div>
+      <div class="toolbar">
+        <button id="themeBtn" class="btn-outline">Toggle Theme</button>
+        <button id="logoutBtn" class="btn-outline hidden">Logout</button>
+      </div>
+    </section>
+
+    <section id="authSection" class="grid">
+      <div class="panel glass">
+        <h2>Login</h2>
+        <input id="loginEmail" class="input" placeholder="Email" value="admin@omr.local" />
+        <input id="loginPassword" class="input" type="password" placeholder="Password" value="admin123" />
+        <button id="loginBtn">Login</button>
+        <p class="muted mt8">Admin: admin@omr.local / admin123 | Student: student@omr.local / student123</p>
+      </div>
+
+      <div class="panel glass">
+        <h2>Sign Up</h2>
+        <input id="signupName" class="input" placeholder="Full Name" />
+        <input id="signupEmail" class="input" placeholder="Email" />
+        <input id="signupPassword" class="input" type="password" placeholder="Password" />
+        <label class="sr-only" for="signupRole">Account role</label>
+        <select id="signupRole" class="input" title="Account role" aria-label="Account role">
+          <option value="student">Student</option>
+          <option value="admin">Admin (Teacher)</option>
+        </select>
+        <button id="signupBtn">Create Account</button>
+      </div>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div class="cards">
+        <div class="metric glass"><div class="label">Role</div><div id="metricRole" class="value">-</div></div>
+        <div class="metric glass"><div class="label">Live Stage</div><div id="metricStage" class="value">Idle</div></div>
+        <div class="metric glass"><div class="label">Notifications</div><div id="metricNotif" class="value">0</div></div>
+      </div>
+
+      <div class="grid mt14">
+        <div class="panel glass" id="adminPanel">
+          <h3>Admin Workspace</h3>
+          <input id="examTitle" class="input" placeholder="Exam Title" />
+          <input id="examSubject" class="input" placeholder="Subject" />
+          <input id="examQuestions" class="input" type="number" min="1" value="20" placeholder="Total Questions" />
+          <input id="examNeg" class="input" type="number" step="0.25" value="0" placeholder="Negative Marking" />
+          <button id="createExamBtn">Create Exam</button>
+
+          <hr class="divider" />
+
+          <select id="examSelectAdmin" class="input"></select>
+          <textarea id="answerKeyInput" class="input" placeholder='Answer key JSON, e.g. {"1":"A","2":"B"}'></textarea>
+          <button id="saveKeyBtn">Save Answer Key</button>
+          <button id="publishBtn" class="btn-outline">Publish Results</button>
+
+          <hr class="divider" />
+
+          <input id="omrFile" class="input" type="file" accept=".png,.jpg,.jpeg" />
+          <input id="studentIdForUpload" class="input" type="number" placeholder="Student ID (optional for admin upload)" />
+          <button id="uploadOmrBtn">Upload OMR Sheet</button>
+
+          <div class="status-line">
+            <span>Real-time Pipeline</span>
+            <span id="pipelineStatus" class="pill warn">Idle</span>
+          </div>
+          <div class="progress"><div id="pipelineProgress"></div></div>
+
+          <canvas id="adminChart" height="140" class="mt12"></canvas>
+
+          <button id="refreshAnalyticsBtn" class="btn-outline mt10">Refresh Analytics</button>
+          <button id="exportBtn" class="btn-outline mt10">Export CSV</button>
+        </div>
+
+        <div class="panel glass" id="studentPanel">
+          <h3>Student Workspace</h3>
+          <select id="examSelectStudent" class="input"></select>
+          <button id="loadExamBtn">Load Exam Questions</button>
+
+          <div id="examRenderer" class="hidden"></div>
+
+          <div class="status-line">
+            <span>Submission</span>
+            <span id="studentStatus" class="pill warn">Not Submitted</span>
+          </div>
+
+          <button id="submitOnlineBtn" class="hidden">Submit Online Exam</button>
+
+          <hr class="divider" />
+
+          <input id="studentOmrFile" class="input" type="file" accept=".png,.jpg,.jpeg" />
+          <button id="studentUploadBtn">Upload My OMR Sheet</button>
+
+          <canvas id="studentChart" height="140" class="mt12"></canvas>
+        </div>
+      </div>
+
+      <div class="panel glass">
+        <h3>Results</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Result ID</th>
+                <th>Exam</th>
+                <th>Student</th>
+                <th>Score</th>
+                <th>Accuracy</th>
+                <th>Rank</th>
+                <th>Status</th>
+                <th>Feedback</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API = "";
+    let token = localStorage.getItem("omr_token") || "";
+    let role = localStorage.getItem("omr_role") || "";
+    let profile = null;
+    let notifications = 0;
+    let socket = null;
+    let currentExamQuestions = [];
+    let studentResponses = {};
+    let adminChart;
+    let studentChart;
+
+    const stageProgress = { Idle: 0, Uploading: 25, Processing: 55, Evaluating: 80, Completed: 100 };
+
+    function toast(msg) {
+      const el = document.createElement("div");
+      el.className = "toast";
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2800);
+    }
+
+    async function api(path, opts = {}) {
+      const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const response = await fetch(`${API}${path}`, { ...opts, headers });
+      const ct = response.headers.get("content-type") || "";
+      const payload = ct.includes("application/json") ? await response.json() : await response.text();
+      if (!response.ok) {
+        throw new Error(payload.error || payload.message || "Request failed");
+      }
+      return payload;
+    }
+
+    async function login() {
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      const data = await api("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      token = data.access_token;
+      role = data.role;
+      localStorage.setItem("omr_token", token);
+      localStorage.setItem("omr_role", role);
+      await loadProfileAndOpenApp();
+      toast("Login successful");
+    }
+
+    async function signup() {
+      const full_name = document.getElementById("signupName").value.trim();
+      const email = document.getElementById("signupEmail").value.trim();
+      const password = document.getElementById("signupPassword").value;
+      const role = document.getElementById("signupRole").value;
+      await api("/api/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({ full_name, email, password, role }),
+      });
+      toast("Signup completed. Please login.");
+    }
+
+    function setupSocket() {
+      if (!token) return;
+      if (socket) socket.close();
+      socket = io({ transports: ["polling"], upgrade: false });
+      socket.on("connect", () => {
+        socket.emit("join", { token });
+      });
+
+      socket.on("processing_status", (payload) => {
+        const stage = payload.stage || "Idle";
+        document.getElementById("metricStage").textContent = stage;
+        document.getElementById("pipelineStatus").textContent = stage;
+        document.getElementById("pipelineProgress").style.width = `${stageProgress[stage] || 0}%`;
+        if (stage === "Completed" && payload.result) {
+          notifications += 1;
+          document.getElementById("metricNotif").textContent = String(notifications);
+          toast("Processing complete. Result generated.");
+          loadResults();
+          refreshAnalytics();
+        }
+      });
+
+      socket.on("result_published", (payload) => {
+        notifications += 1;
+        document.getElementById("metricNotif").textContent = String(notifications);
+        toast(payload.message || "Result published");
+        const txt = "Voice Assistant: Your result is published.";
+        if (window.speechSynthesis) {
+          const utterance = new SpeechSynthesisUtterance(txt);
+          window.speechSynthesis.speak(utterance);
+        }
+        loadResults();
+      });
+    }
+
+    async function loadProfileAndOpenApp() {
+      profile = await api("/api/profile");
+      document.getElementById("metricRole").textContent = profile.role;
+      document.getElementById("authSection").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      document.getElementById("logoutBtn").classList.remove("hidden");
+      document.getElementById("adminPanel").classList.toggle("hidden", profile.role !== "admin");
+      document.getElementById("studentPanel").classList.toggle("hidden", profile.role !== "student");
+      setupSocket();
+      await loadExams();
+      await loadResults();
+      await refreshAnalytics();
+    }
+
+    async function loadExams() {
+      const exams = await api(profile.role === "student" ? "/api/exams?available=1" : "/api/exams");
+      const adminSelect = document.getElementById("examSelectAdmin");
+      const studentSelect = document.getElementById("examSelectStudent");
+      adminSelect.innerHTML = "";
+      studentSelect.innerHTML = "";
+
+      exams.forEach((exam) => {
+        const text = `${exam.id} - ${exam.title} (${exam.subject})`;
+        const optA = new Option(text, exam.id);
+        const optS = new Option(text, exam.id);
+        adminSelect.add(optA);
+        studentSelect.add(optS);
+      });
+    }
+
+    async function createExam() {
+      const title = document.getElementById("examTitle").value.trim();
+      const subject = document.getElementById("examSubject").value.trim();
+      const total_questions = Number(document.getElementById("examQuestions").value || 20);
+      const negative_marking = Number(document.getElementById("examNeg").value || 0);
+
+      const payload = { title, subject, total_questions, negative_marking };
+      await api("/api/exams", { method: "POST", body: JSON.stringify(payload) });
+      toast("Exam created");
+      await loadExams();
+    }
+
+    function buildDefaultAnswerKey(total) {
+      const key = {};
+      const opts = ["A", "B", "C", "D"];
+      for (let i = 1; i <= total; i++) {
+        key[String(i)] = opts[(i - 1) % 4];
+      }
+      return key;
+    }
+
+    async function saveAnswerKey() {
+      const exam_id = Number(document.getElementById("examSelectAdmin").value);
+      let raw = document.getElementById("answerKeyInput").value.trim();
+      if (!raw) {
+        const exam = (await api("/api/exams")).find((x) => x.id === exam_id);
+        raw = JSON.stringify(buildDefaultAnswerKey(exam?.total_questions || 20));
+      }
+      const answer_key = JSON.parse(raw);
+      await api(`/api/exams/${exam_id}/answer-key`, {
+        method: "POST",
+        body: JSON.stringify({ answer_key }),
+      });
+      toast("Answer key saved");
+    }
+
+    async function publishExamResults() {
+      const exam_id = Number(document.getElementById("examSelectAdmin").value);
+      await api(`/api/exams/${exam_id}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ published: true }),
+      });
+      toast("Results published");
+      await loadExams();
+      await loadResults();
+    }
+
+    async function uploadOmrAdmin() {
+      const exam_id = Number(document.getElementById("examSelectAdmin").value);
+      const fileInput = document.getElementById("omrFile");
+      if (!fileInput.files.length) {
+        toast("Select an image first");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      const sid = document.getElementById("studentIdForUpload").value;
+      if (sid) formData.append("student_id", sid);
+
+      const response = await fetch(`/api/exams/${exam_id}/upload-omr`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        toast(payload.error || "Upload failed");
+        return;
+      }
+      toast("OMR uploaded and processed");
+      await loadResults();
+      await refreshAnalytics();
+    }
+
+    async function loadExamQuestions() {
+      const exam_id = Number(document.getElementById("examSelectStudent").value);
+      const rows = await api(`/api/exams/${exam_id}/questions`);
+      currentExamQuestions = rows.length ? rows : Array.from({ length: 20 }).map((_, i) => ({
+        question_no: i + 1,
+        question_text: `Question ${i + 1}`,
+        options: ["A", "B", "C", "D"],
+        topic: "General",
+      }));
+
+      studentResponses = {};
+      const root = document.getElementById("examRenderer");
+      root.innerHTML = "";
+      currentExamQuestions.forEach((q) => {
+        const card = document.createElement("div");
+        card.className = "panel";
+        card.style.padding = "10px";
+        card.style.border = "1px solid var(--line)";
+        card.style.borderRadius = "12px";
+        card.style.marginBottom = "10px";
+
+        const title = document.createElement("div");
+        title.textContent = `Q${q.question_no}. ${q.question_text}`;
+        title.style.marginBottom = "8px";
+        card.appendChild(title);
+
+        const grid = document.createElement("div");
+        grid.className = "bubble-grid";
+        ["A", "B", "C", "D"].forEach((opt) => {
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.textContent = opt;
+          bubble.onclick = () => {
+            Array.from(grid.children).forEach((c) => c.classList.remove("active"));
+            bubble.classList.add("active");
+            studentResponses[String(q.question_no)] = opt;
+          };
+          grid.appendChild(bubble);
+        });
+
+        card.appendChild(grid);
+        root.appendChild(card);
+      });
+
+      root.classList.remove("hidden");
+      document.getElementById("submitOnlineBtn").classList.remove("hidden");
+      toast("Exam loaded");
+    }
+
+    async function submitOnlineExam() {
+      const exam_id = Number(document.getElementById("examSelectStudent").value);
+      const payload = {
+        responses: studentResponses,
+        time_taken_sec: 900,
+      };
+      const res = await api(`/api/exams/${exam_id}/submit-online`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      document.getElementById("studentStatus").textContent = "Submitted";
+      document.getElementById("studentStatus").className = "pill ok";
+      toast(`Submitted. Score: ${res.result.score}`);
+      await loadResults();
+      await refreshStudentChart();
+    }
+
+    async function uploadOmrStudent() {
+      const exam_id = Number(document.getElementById("examSelectStudent").value);
+      const input = document.getElementById("studentOmrFile");
+      if (!input.files.length) {
+        toast("Choose your OMR image");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", input.files[0]);
+
+      const response = await fetch(`/api/exams/${exam_id}/upload-omr`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        toast(payload.error || "Upload failed");
+        return;
+      }
+      toast(`OMR evaluated. Score: ${payload.result.score}`);
+      await loadResults();
+      await refreshStudentChart();
+    }
+
+    async function loadResults() {
+      const body = document.getElementById("resultsBody");
+      body.innerHTML = "";
+
+      let rows = [];
+      if (profile.role === "student") {
+        rows = await api("/api/results/me");
+      } else {
+        const data = await api("/api/admin/analytics");
+        rows = data.top_results || [];
+      }
+
+      rows.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.result_id}</td>
+          <td>${r.exam_id}</td>
+          <td>${r.student_id}</td>
+          <td>${r.score}</td>
+          <td>${r.accuracy}%</td>
+          <td>${r.rank}</td>
+          <td>${r.status}</td>
+          <td>${r.feedback || "-"}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function refreshAnalytics() {
+      if (!profile || profile.role !== "admin") return;
+      const data = await api("/api/admin/analytics");
+      const labels = (data.top_results || []).map((x) => `S${x.student_id}`);
+      const scores = (data.top_results || []).map((x) => x.score);
+
+      if (!adminChart) {
+        adminChart = new Chart(document.getElementById("adminChart"), {
+          type: "bar",
+          data: { labels, datasets: [{ label: "Score", data: scores, backgroundColor: "#00d2ff" }] },
+          options: { plugins: { legend: { labels: { color: getComputedStyle(document.body).getPropertyValue("--text") } } } },
+        });
+      } else {
+        adminChart.data.labels = labels;
+        adminChart.data.datasets[0].data = scores;
+        adminChart.update();
+      }
+    }
+
+    async function refreshStudentChart() {
+      if (!profile || profile.role !== "student") return;
+      const rows = await api("/api/results/me");
+      const latest = rows[0];
+      if (!latest) return;
+
+      const data = [latest.correct, latest.wrong, latest.unattempted];
+      if (!studentChart) {
+        studentChart = new Chart(document.getElementById("studentChart"), {
+          type: "doughnut",
+          data: {
+            labels: ["Correct", "Wrong", "Unattempted"],
+            datasets: [{ data, backgroundColor: ["#3ddc97", "#ff6b6b", "#ffd166"] }],
+          },
+        });
+      } else {
+        studentChart.data.datasets[0].data = data;
+        studentChart.update();
+      }
+    }
+
+    async function exportCsv() {
+      const exam_id = Number(document.getElementById("examSelectAdmin").value);
+      const response = await fetch(`/api/admin/results/export?exam_id=${exam_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        toast("Export failed");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "results.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function logout() {
+      localStorage.removeItem("omr_token");
+      localStorage.removeItem("omr_role");
+      token = "";
+      role = "";
+      profile = null;
+      if (socket) socket.close();
+      location.reload();
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      html.dataset.theme = html.dataset.theme === "light" ? "dark" : "light";
+    }
+
+    document.getElementById("loginBtn").onclick = () => login().catch((e) => toast(e.message));
+    document.getElementById("signupBtn").onclick = () => signup().catch((e) => toast(e.message));
+    document.getElementById("logoutBtn").onclick = logout;
+    document.getElementById("themeBtn").onclick = toggleTheme;
+    document.getElementById("createExamBtn").onclick = () => createExam().catch((e) => toast(e.message));
+    document.getElementById("saveKeyBtn").onclick = () => saveAnswerKey().catch((e) => toast(e.message));
+    document.getElementById("publishBtn").onclick = () => publishExamResults().catch((e) => toast(e.message));
+    document.getElementById("uploadOmrBtn").onclick = uploadOmrAdmin;
+    document.getElementById("loadExamBtn").onclick = () => loadExamQuestions().catch((e) => toast(e.message));
+    document.getElementById("submitOnlineBtn").onclick = () => submitOnlineExam().catch((e) => toast(e.message));
+    document.getElementById("studentUploadBtn").onclick = uploadOmrStudent;
+    document.getElementById("refreshAnalyticsBtn").onclick = () => refreshAnalytics().catch((e) => toast(e.message));
+    document.getElementById("exportBtn").onclick = exportCsv;
+
+    if (token) {
+      loadProfileAndOpenApp().catch((e) => {
+        toast(e.message);
+        logout();
+      });
+    }
+  </script>
+</body>
+</html>
