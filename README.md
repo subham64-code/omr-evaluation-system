@@ -82,3 +82,4 @@ See db_schema.sql for full schema.
 - OMR detection currently assumes a structured bubble layout. For institution-specific sheets, calibrate coordinates/model per template.
 - When running in Docker locally, the database is persisted in `./data/omr_eval.db`.
 - Render free web services use an ephemeral filesystem, so SQLite data will not persist across redeploys; for persistence, switch `DATABASE_URL` to Render Postgres.
+- Thank you
